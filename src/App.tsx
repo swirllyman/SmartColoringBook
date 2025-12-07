@@ -79,7 +79,12 @@ function App() {
     // Calculate max scale to fit
     const scaleX = (availableWidth - padding * 2) / 800;
     const scaleY = (availableHeight - padding * 2) / 600;
-    const newScale = Math.min(scaleX, scaleY, 1.0); // Don't zoom in passed 100%
+
+    const isMobile = window.innerWidth <= 900;
+    const zoomMultiplier = isMobile ? 1.4 : 1.15;
+
+    // Fit to screen then apply user requested zoom boost. Allow going > 1.0 up to 3.0
+    const newScale = Math.min(Math.min(scaleX, scaleY) * zoomMultiplier, 3.0);
 
     // Just center strictly
     const offsetX = 0;
@@ -140,6 +145,48 @@ function App() {
     setLayers([...layers, newLayer]);
     setActiveLayerId(newId);
   };
+
+  // Color Memory Logic
+
+  // Track previous layer to save color on exit
+  const prevLayerIdRef = useRef<string>(activeLayerId);
+
+  // 1. When active layer changes:
+  //    a) Save current 'color' to the PREVIOUS layer (so it remembers what we had).
+  //    b) Restore the NEW layer's lastColor (if exists).
+  useEffect(() => {
+    const prevId = prevLayerIdRef.current;
+
+    // If we switched layers (and had a previous one)
+    if (prevId && prevId !== activeLayerId) {
+      setLayers(currentLayers =>
+        currentLayers.map(l => l.id === prevId ? { ...l, lastColor: color } : l)
+      );
+    }
+
+    // Update ref
+    prevLayerIdRef.current = activeLayerId;
+
+    // Restore logic for NEW layer
+    if (!activeLayerId) return;
+    const layer = layers.find(l => l.id === activeLayerId);
+    if (layer && layer.lastColor) {
+      setColor(layer.lastColor);
+    }
+    // If no lastColor, we intentionally keep 'color' as is (inheriting from previous).
+
+  }, [activeLayerId]); // dependent on ID switch
+
+  // 2. When color changes explicitely, save it to the ACTIVE layer immediately
+  useEffect(() => {
+    if (!activeLayerId) return;
+    setLayers(prevLayers =>
+      prevLayers.map(l =>
+        l.id === activeLayerId ? { ...l, lastColor: color } : l
+      )
+    );
+  }, [color]);
+
 
   const handleSave = () => {
     const canvas = document.createElement('canvas');
