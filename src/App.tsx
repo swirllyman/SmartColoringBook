@@ -119,8 +119,14 @@ function App() {
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    // Logic for Scaling:
+    // The canvas stack might be visually smaller than 800x600.
+    // logical size is fixed 800x600.
+    const scaleX = 800 / rect.width;
+    const scaleY = 600 / rect.height;
+
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
 
     // EYEDROPPER LOGIC
     if (tool === 'eyedropper') {
