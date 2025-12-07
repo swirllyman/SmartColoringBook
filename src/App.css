@@ -159,14 +159,26 @@
 
 .canvas-stack {
   position: relative;
-  width: 800px;
-  height: 600px;
+  width: 100%;
+  max-width: 800px;
+  aspect-ratio: 4/3;
+  /* height auto to respect aspect ratio, but max-height to fit viewport if needed */
   background: white;
   /* Always white canvas even in dark mode */
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   cursor: crosshair;
+  margin: 0 auto;
+  /* Center it */
+}
+
+/* Ensure canvas element scales */
+.layer-wrapper canvas {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 /*
