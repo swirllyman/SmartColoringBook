@@ -6,6 +6,7 @@ export interface Layer {
     locked?: boolean;
     zIndex?: number;
     lockAlpha?: boolean; // If true, strictly restricts drawing to existing pixels
+    lastColor?: string; // Last used color on this layer
 }
 
 export interface LayerAction {

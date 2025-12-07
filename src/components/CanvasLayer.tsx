@@ -35,21 +35,36 @@ export const CanvasLayer = ({
         ctx.lineJoin = 'round';
         ctx.lineWidth = lineWidth;
 
+        let strokeColor = color;
+
         if (tool === 'eraser') {
-            ctx.globalCompositeOperation = 'destination-out';
+            if (lockAlpha) {
+                // Smart Erase: Paint White inside the shape to "undo" coloring
+                // This preserves the alpha mask so the user can color it again.
+                ctx.globalCompositeOperation = 'source-atop';
+                strokeColor = '#ffffff';
+            } else {
+                // True Erase: Remove pixels to transparency
+                ctx.globalCompositeOperation = 'destination-out';
+            }
         } else {
-            // "source-atop" draws new color ONLY on top of existing non-transparent pixels.
-            // "source-over" draws normally (everywhere).
+            // Brush
             ctx.globalCompositeOperation = lockAlpha ? 'source-atop' : 'source-over';
-            ctx.strokeStyle = color;
+            strokeColor = color;
         }
+
+        ctx.strokeStyle = strokeColor;
 
         ctx.moveTo(startPoint.x, startPoint.y);
         ctx.lineTo(currentPoint.x, currentPoint.y);
         ctx.stroke();
 
-        if (tool !== 'eraser') {
-            ctx.fillStyle = color;
+        // Draw round caps manually for smooth lines (except for True Erase which handles its own caps via stroke)
+        // Actually, even for True Erase, stroke() handles lineCap='round', but fill() is needed for single dots?
+        // Let's stick to the previous logic: Fill circles for brushes.
+        // Now "Smart Eraser" acts like a brush, so we fill circles for it too.
+        if (tool !== 'eraser' || (tool === 'eraser' && lockAlpha)) {
+            ctx.fillStyle = strokeColor;
             ctx.beginPath();
             ctx.arc(startPoint.x, startPoint.y, lineWidth / 2, 0, 2 * Math.PI);
             ctx.fill();

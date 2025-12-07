@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { CanvasLayer } from './components/CanvasLayer';
 import { Toolbar } from './components/Toolbar';
+import { Sidebar } from './components/Sidebar';
 import { TemplateSelector } from './components/TemplateSelector';
 import type { Layer } from './types/layer';
 import type { DrawingTemplate } from './types/template';
@@ -12,20 +13,44 @@ function App() {
   const [activeLayerId, setActiveLayerId] = useState<string>('');
   const [loadedTemplate, setLoadedTemplate] = useState<DrawingTemplate | null>(null);
   const initializedRefs = useRef<Set<string>>(new Set());
+  // Space Key Tracker for Panning
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === 'Space' && !e.repeat) setIsSpacePressed(true);
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.code === 'Space') setIsSpacePressed(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
+  }, []);
 
   // Tools state
   const [color, setColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(50);
   const [tool, setTool] = useState<'brush' | 'eraser' | 'eyedropper'>('brush');
 
-  // UI State - Floating Panels
-  // Default: Open on PC (width > 900), Closed on Mobile
-  const [showTemplates, setShowTemplates] = useState(window.innerWidth > 900);
-  const [showLayers, setShowLayers] = useState(window.innerWidth > 900);
+  // UI State - Active Panel
+  const [activePanel, setActivePanel] = useState<'none' | 'templates' | 'layers' | 'ruler'>(
+    window.innerWidth > 900 ? 'templates' : 'none'
+  );
 
-  // Load default template on start
+  // Canvas Navigation State
+  const [viewState, setViewState] = useState({ scale: 1, offset: { x: 0, y: 0 } });
+  const [isPanning, setIsPanning] = useState(false);
+
+  // Grid State
+  const [gridOpacity, setGridOpacity] = useState(0.1);
+  const [gridScale, setGridScale] = useState(50);
+
   useEffect(() => {
-    loadTemplate(TEMPLATES[0]);
+    console.log("🚀 FLOATING UI CONTAINER MODE ACTIVE 🚀");
   }, []);
 
   const loadTemplate = (template: DrawingTemplate) => {
@@ -45,11 +70,33 @@ function App() {
     setLoadedTemplate(template);
     initializedRefs.current.clear();
 
+    // Auto-Recenter on Load (Fit to Screen)
+    const padding = 40; // px
+    // Sidebar is floating now, so we use full width
+    const availableWidth = window.innerWidth;
+    const availableHeight = window.innerHeight;
+
+    // Calculate max scale to fit
+    const scaleX = (availableWidth - padding * 2) / 800;
+    const scaleY = (availableHeight - padding * 2) / 600;
+    const newScale = Math.min(scaleX, scaleY, 1.0); // Don't zoom in passed 100%
+
+    // Just center strictly
+    const offsetX = 0;
+    const offsetY = 0;
+
+    setViewState({ scale: newScale, offset: { x: offsetX, y: offsetY } });
+
     // On mobile, auto-close template picker after selection to show canvas
     if (window.innerWidth <= 900) {
-      setShowTemplates(false);
+      setActivePanel('none');
     }
   };
+
+  // Load default template on start
+  useEffect(() => {
+    loadTemplate(TEMPLATES[0]);
+  }, []);
 
   // Safe Draw Effect (with timeout for DOM readiness)
   useEffect(() => {
@@ -134,8 +181,23 @@ function App() {
   };
 
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    // Logic for Scaling:
+    // Find a reference canvas to get the ACTUAL displayed size/position (centering/letterboxing)
+    const referenceCanvas = document.querySelector('canvas');
+    if (!referenceCanvas) return;
+
+    const rect = referenceCanvas.getBoundingClientRect();
+
+    // Check if click is within the actual canvas bounds
+    if (
+      e.clientX < rect.left ||
+      e.clientX > rect.right ||
+      e.clientY < rect.top ||
+      e.clientY > rect.bottom
+    ) {
+      return; // Clicked in the black bars/empty space
+    }
+
+    // Map screen pixels (relative to canvas rect) to internal 800x600 pixels
     const scaleX = 800 / rect.width;
     const scaleY = 600 / rect.height;
 
@@ -197,8 +259,152 @@ function App() {
     setActiveLayerId('');
   };
 
+  // LAYER COLOR MEMORY
+  // 1. When Color changes, save it to the Active Layer
+  useEffect(() => {
+    if (!activeLayerId) return;
+    setLayers(prevLayers => prevLayers.map(l =>
+      l.id === activeLayerId ? { ...l, lastColor: color } : l
+    ));
+  }, [color]); // Intentionally NOT activeLayerId to avoid loops
+
+  // 2. When Active Layer changes, restore its last color (if exists)
+  useEffect(() => {
+    if (!activeLayerId) return;
+    const layer = layers.find(l => l.id === activeLayerId);
+    // If layer has a memory, use it. 
+    // If NOT (undefined), default to Black (or desired default) to avoid "leaking" the previous layer's color.
+    // The user specifically requested: "use the last used color instead of the picked color."
+    // This ensures we switch context completely.
+    if (layer) {
+      if (layer.lastColor) {
+        setColor(layer.lastColor);
+      } else {
+        // New layer / No history -> Default to Black (or keep current? User said "instead of picked", implying strictness).
+        // Let's safe-guard by defaulting to Black for fresh layers to ensure "fresh" feeling.
+        setColor('#000000');
+      }
+    }
+  }, [activeLayerId]);
+
   return (
     <div className="app-container">
+
+      {/* 3. FLOATING UI CONTAINER - Sidebar + Panels */}
+      <div className={`floating-ui-container ${activePanel !== 'none' ? 'panel-open' : ''}`}>
+
+        {/* Sidebar (Always visible) */}
+        <Sidebar activePanel={activePanel} setActivePanel={setActivePanel} />
+
+        {/* Content Panel Area (Only one rendered at a time) */}
+        {activePanel !== 'none' && (
+          <div className="expanded-panel">
+
+            {/* Templates */}
+            {activePanel === 'templates' && (
+              <div className="panel-content">
+                <h3 className="panel-title">Pictures <button className="close-btn" onClick={() => setActivePanel('none')}>✖</button></h3>
+                <TemplateSelector onSelect={loadTemplate} />
+              </div>
+            )}
+
+            {/* Layers */}
+            {activePanel === 'layers' && (
+              <div className="panel-content">
+                <div className="layers-header">
+                  <h3>Layers</h3>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={addLayer} className="mini-btn" title="Add Layer">➕</button>
+                    <button className="close-btn" onClick={() => setActivePanel('none')}>✖</button>
+                  </div>
+                </div>
+
+                <div className="layers-list">
+                  {[...layers]
+                    .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
+                    .reverse()
+                    .filter(l => l.name !== 'Outlines')
+                    .map((layer) => (
+                      <div
+                        key={layer.id}
+                        className={`layer-item ${layer.id === activeLayerId ? 'selected' : ''} ${layer.locked ? 'locked' : ''}`}
+                        onClick={() => !layer.locked && setActiveLayerId(layer.id)}
+                        style={{
+                          borderLeft: `5px solid ${layer.lastColor || 'transparent'}`,
+                        }}
+                      >
+                        <span onClick={(e) => toggleVisibility(layer.id, e)} className="visibility-icon" title="Visibility">
+                          {layer.visible ? '👁️' : '🚫'}
+                        </span>
+
+                        <span className="layer-icon">{layer.icon || '📄'}</span>
+                        <span className="layer-name">{layer.name}</span>
+
+                        {!layer.locked && (
+                          <span
+                            onClick={(e) => toggleAlphaLock(layer.id, e)}
+                            className={`action-icon ${layer.lockAlpha ? 'active' : ''}`}
+                            title={layer.lockAlpha ? "Alpha Locked" : "Alpha Unlocked"}
+                            style={{ marginLeft: 'auto', opacity: layer.lockAlpha ? 1 : 0.3, cursor: 'pointer' }}
+                          >
+                            {layer.lockAlpha ? '🔒' : '🔓'}
+                          </span>
+                        )}
+
+                        {layer.locked && <span style={{ marginLeft: 'auto' }}>🔒</span>}
+                      </div>
+                    ))}
+                </div>
+                <div style={{ padding: '1rem 0' }}>
+                  <button
+                    className="action-btn secondary"
+                    style={{ width: '100%', fontSize: '0.9rem' }}
+                    onClick={(e) => {
+                      const outlineLayer = layers.find(l => l.name === 'Outlines');
+                      if (outlineLayer) toggleVisibility(outlineLayer.id, e);
+                    }}
+                  >
+                    {layers.find(l => l.name === 'Outlines')?.visible ? 'Hide Lines ✏️' : 'Show Lines ✏️'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Ruler */}
+            {activePanel === 'ruler' && (
+              <div className="panel-content">
+                <h3 className="panel-title">Ruler / Grid <button className="close-btn" onClick={() => setActivePanel('none')}>✖</button></h3>
+                <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  <div className="bg-control-group">
+                    <label>Opacity: {Math.round(gridOpacity * 100)}%</label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.05"
+                      value={gridOpacity}
+                      onChange={(e) => setGridOpacity(Number(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                  <div className="bg-control-group">
+                    <label>Grid Size: {gridScale}px</label>
+                    <input
+                      type="range"
+                      min="20"
+                      max="200"
+                      step="10"
+                      value={gridScale}
+                      onChange={(e) => setGridScale(Number(e.target.value))}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* 1. TOP TOOLBAR (Always Visible) */}
       <div className="toolbar-container">
@@ -210,19 +416,61 @@ function App() {
           tool={tool}
           setTool={setTool}
           onSave={handleSave}
-          showTemplates={showTemplates}
-          setShowTemplates={setShowTemplates}
-          showLayers={showLayers}
-          setShowLayers={setShowLayers}
         />
       </div>
 
       {/* 2. MAIN WORKSPACE (Canvas) */}
-      <div className="main-workspace">
+      <div
+        className="main-workspace"
+        onWheel={(e) => {
+          // Zoom on Wheel
+          e.preventDefault();
+          const zoomIntensity = 0.1;
+          const delta = -Math.sign(e.deltaY) * zoomIntensity;
+          const newScale = Math.min(Math.max(viewState.scale + delta, 0.5), 5); // Limit zoom 0.5x to 5x
+          setViewState(prev => ({ ...prev, scale: newScale }));
+        }}
+        onMouseDown={(e: React.MouseEvent) => {
+          // Middle mouse or Spacebar+Left Click to Pan
+          if (e.button === 1 || (e.button === 0 && isSpacePressed)) {
+            e.preventDefault();
+            setIsPanning(true);
+          }
+        }}
+        onMouseMove={(e: React.MouseEvent) => {
+          if (isPanning) {
+            setViewState(prev => ({
+              ...prev,
+              offset: {
+                x: prev.offset.x + e.movementX,
+                y: prev.offset.y + e.movementY
+              }
+            }));
+          }
+        }}
+        onMouseUp={() => setIsPanning(false)}
+        onMouseLeave={() => setIsPanning(false)}
+      >
         <div
           className={`canvas-stack ${activeLayerId ? 'focus-mode' : ''}`}
           onClick={handleCanvasClick}
-          style={{ cursor: tool === 'eyedropper' ? 'crosshair' : 'default' }}
+          style={{
+            cursor: isPanning ? 'grabbing' : (tool === 'eyedropper' ? 'crosshair' : 'default'),
+            // Offset Focus Logic: Shift canvas right to recenter in valid space when panel is open.
+            // Sidebar(50) + Panel(260) = 310px covered on left. 
+            // We shift by half of panel width ~130px to maintain perceived center.
+            transform: `translate(${viewState.offset.x + (activePanel !== 'none' ? 130 : 0)}px, ${viewState.offset.y}px) scale(${viewState.scale})`,
+            transformOrigin: 'center center',
+
+            // Grid Background
+            backgroundColor: '#ffffff',
+            backgroundPosition: 'center center',
+            backgroundImage: `
+                  linear-gradient(rgba(0,0,0,${gridOpacity}) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(0,0,0,${gridOpacity}) 1px, transparent 1px)
+              `,
+            backgroundSize: `${gridScale}px ${gridScale}px`
+          }}
         >
           {layers.map((layer) => (
             <div
@@ -244,76 +492,6 @@ function App() {
           ))}
         </div>
       </div>
-
-      {/* 3. FLOATING PANELS */}
-
-      {/* Left Panel: Templates */}
-      {showTemplates && (
-        <div className="floating-panel left-panel">
-          <h3 className="panel-title">Pictures <button className="close-btn" onClick={() => setShowTemplates(false)}>✖</button></h3>
-          <TemplateSelector onSelect={loadTemplate} />
-        </div>
-      )}
-
-      {/* Right Panel: Layers */}
-      {showLayers && (
-        <div className="floating-panel right-panel">
-          <div className="layers-header">
-            <h3>Layers</h3>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={addLayer} className="mini-btn" title="Add Layer">➕</button>
-              <button className="close-btn" onClick={() => setShowLayers(false)}>✖</button>
-            </div>
-          </div>
-
-          <div className="layers-list">
-            {[...layers]
-              .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
-              .reverse()
-              .filter(l => l.name !== 'Outlines')
-              .map((layer) => (
-                <div
-                  key={layer.id}
-                  className={`layer-item ${layer.id === activeLayerId ? 'selected' : ''} ${layer.locked ? 'locked' : ''}`}
-                  onClick={() => !layer.locked && setActiveLayerId(layer.id)}
-                >
-                  <span onClick={(e) => toggleVisibility(layer.id, e)} className="visibility-icon" title="Visibility">
-                    {layer.visible ? '👁️' : '🚫'}
-                  </span>
-
-                  <span className="layer-icon">{layer.icon || '📄'}</span>
-                  <span className="layer-name">{layer.name}</span>
-
-                  {!layer.locked && (
-                    <span
-                      onClick={(e) => toggleAlphaLock(layer.id, e)}
-                      className={`action-icon ${layer.lockAlpha ? 'active' : ''}`}
-                      title={layer.lockAlpha ? "Alpha Locked" : "Alpha Unlocked"}
-                      style={{ marginLeft: 'auto', opacity: layer.lockAlpha ? 1 : 0.3, cursor: 'pointer' }}
-                    >
-                      {layer.lockAlpha ? '🔒' : '🔓'}
-                    </span>
-                  )}
-
-                  {layer.locked && <span style={{ marginLeft: 'auto' }}>🔒</span>}
-                </div>
-              ))}
-          </div>
-          <div style={{ padding: '1rem 0' }}>
-            <button
-              className="action-btn secondary"
-              style={{ width: '100%', fontSize: '0.9rem' }}
-              onClick={(e) => {
-                const outlineLayer = layers.find(l => l.name === 'Outlines');
-                if (outlineLayer) toggleVisibility(outlineLayer.id, e);
-              }}
-            >
-              {layers.find(l => l.name === 'Outlines')?.visible ? 'Hide Lines ✏️' : 'Show Lines ✏️'}
-            </button>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }

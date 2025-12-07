@@ -1,3 +1,4 @@
+
 interface ToolbarProps {
     color: string;
     setColor: (color: string) => void;
@@ -6,34 +7,16 @@ interface ToolbarProps {
     tool: 'brush' | 'eraser' | 'eyedropper';
     setTool: (tool: 'brush' | 'eraser' | 'eyedropper') => void;
     onSave: () => void;
-    showTemplates: boolean;
-    setShowTemplates: (show: boolean) => void;
-    showLayers: boolean;
-    setShowLayers: (show: boolean) => void;
 }
 
 export const Toolbar = ({
     color, setColor,
     brushSize, setBrushSize,
     tool, setTool,
-    onSave,
-    showTemplates, setShowTemplates,
-    showLayers, setShowLayers
+    onSave
 }: ToolbarProps) => {
     return (
         <div className="toolbar-top">
-            <div className="tool-group">
-                <button
-                    className={`tool-btn ${showTemplates ? 'active' : ''}`}
-                    onClick={() => setShowTemplates(!showTemplates)}
-                    title="Templates"
-                >
-                    🖼️
-                </button>
-            </div>
-
-            <div className="divider" />
-
             <div className="tool-group">
                 <button
                     className={`tool-btn ${tool === 'brush' ? 'active' : ''}`}
@@ -90,18 +73,6 @@ export const Toolbar = ({
             <button onClick={onSave} className="action-btn primary" title="Save Image">
                 💾 Save
             </button>
-
-            <div className="divider" />
-
-            <div className="tool-group">
-                <button
-                    className={`tool-btn ${showLayers ? 'active' : ''}`}
-                    onClick={() => setShowLayers(!showLayers)}
-                    title="Layers"
-                >
-                    📚
-                </button>
-            </div>
         </div>
     );
 };

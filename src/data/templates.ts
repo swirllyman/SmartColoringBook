@@ -8,7 +8,6 @@ export const TEMPLATES: DrawingTemplate[] = [
             {
                 name: 'Stem',
                 icon: '🌿',
-                zIndex: 0,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -30,7 +29,6 @@ export const TEMPLATES: DrawingTemplate[] = [
             {
                 name: 'Petals',
                 icon: '🌸',
-                zIndex: 1,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -49,7 +47,6 @@ export const TEMPLATES: DrawingTemplate[] = [
             {
                 name: 'Center',
                 icon: '🟡',
-                zIndex: 2,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -62,7 +59,7 @@ export const TEMPLATES: DrawingTemplate[] = [
             {
                 name: 'Outlines',
                 icon: '✏️',
-                zIndex: 999,
+                zIndex: 0,
                 locked: true,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
@@ -107,7 +104,6 @@ export const TEMPLATES: DrawingTemplate[] = [
             {
                 name: 'Ears',
                 icon: '👂',
-                zIndex: 0,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -127,9 +123,8 @@ export const TEMPLATES: DrawingTemplate[] = [
                 }
             },
             {
-                name: 'Face',
+                name: 'Face Base',
                 icon: '😺',
-                zIndex: 1,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -140,9 +135,20 @@ export const TEMPLATES: DrawingTemplate[] = [
                 }
             },
             {
-                name: 'Mouth',
-                icon: '👄',
-                zIndex: 2,
+                name: 'Eyes',
+                icon: '👀',
+                drawFn: (ctx, w, h) => {
+                    const cx = w / 2;
+                    const cy = h / 2;
+                    ctx.fillStyle = '#ffffff';
+                    // Whites of eyes
+                    ctx.beginPath(); ctx.ellipse(cx - 50, cy - 40, 12, 20, 0, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.ellipse(cx + 50, cy - 40, 12, 20, 0, 0, Math.PI * 2); ctx.fill();
+                }
+            },
+            {
+                name: 'Mouth Area',
+                icon: '�',
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -153,9 +159,23 @@ export const TEMPLATES: DrawingTemplate[] = [
                 }
             },
             {
+                name: 'Nose',
+                icon: '�',
+                drawFn: (ctx, w, h) => {
+                    const cx = w / 2;
+                    const cy = h / 2;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.moveTo(cx - 15, cy + 10);
+                    ctx.lineTo(cx + 15, cy + 10);
+                    ctx.lineTo(cx, cy + 25);
+                    ctx.fill();
+                }
+            },
+            {
                 name: 'Outlines',
                 icon: '✏️',
-                zIndex: 999,
+                zIndex: 0,
                 locked: true,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
@@ -184,17 +204,18 @@ export const TEMPLATES: DrawingTemplate[] = [
                     ctx.stroke();
 
                     // Eyes
-                    ctx.fillStyle = '#000';
-                    ctx.beginPath(); ctx.ellipse(cx - 50, cy - 40, 12, 20, 0, 0, Math.PI * 2); ctx.fill();
-                    ctx.beginPath(); ctx.ellipse(cx + 50, cy - 40, 12, 20, 0, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#000'; // Pupil default (can be painted over)
+                    // Actually, let's make pupils outlines so they can be filled? 
+                    // No, usually pupils are black. Let's keep outline simple.
+                    ctx.beginPath(); ctx.ellipse(cx - 50, cy - 40, 12, 20, 0, 0, Math.PI * 2); ctx.stroke();
+                    ctx.beginPath(); ctx.ellipse(cx + 50, cy - 40, 12, 20, 0, 0, Math.PI * 2); ctx.stroke();
 
                     // Nose
-                    ctx.fillStyle = '#ffaaaa';
                     ctx.beginPath();
                     ctx.moveTo(cx - 15, cy + 10);
                     ctx.lineTo(cx + 15, cy + 10);
                     ctx.lineTo(cx, cy + 25);
-                    ctx.fill();
+                    ctx.closePath();
                     ctx.stroke();
 
                     // Whiskers
@@ -227,7 +248,6 @@ export const TEMPLATES: DrawingTemplate[] = [
             {
                 name: 'Body',
                 icon: '🤖',
-                zIndex: 0,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -238,7 +258,6 @@ export const TEMPLATES: DrawingTemplate[] = [
             {
                 name: 'Head',
                 icon: '🖥️',
-                zIndex: 1,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -247,9 +266,51 @@ export const TEMPLATES: DrawingTemplate[] = [
                 }
             },
             {
+                name: 'Arms',
+                icon: '🦾',
+                drawFn: (ctx, w, h) => {
+                    const cx = w / 2;
+                    const cy = h / 2;
+                    ctx.fillStyle = '#ffffff';
+                    // Left Arm
+                    ctx.beginPath();
+                    ctx.moveTo(cx - 80, cy + 20); ctx.bezierCurveTo(cx - 120, cy + 60, cx - 120, cy + 100, cx - 80, cy + 140);
+                    // Thick stroke simulation for fill? Or just simple lines?
+                    // Let's create a thicker path to fill
+                    ctx.lineTo(cx - 60, cy + 140); // Close loop roughly
+                    ctx.bezierCurveTo(cx - 100, cy + 100, cx - 100, cy + 60, cx - 80, cy + 40);
+                    ctx.fill();
+
+                    // Right Arm
+                    ctx.beginPath();
+                    ctx.moveTo(cx + 80, cy + 20); ctx.bezierCurveTo(cx + 120, cy + 60, cx + 120, cy + 100, cx + 80, cy + 140);
+                    ctx.lineTo(cx + 60, cy + 140);
+                    ctx.bezierCurveTo(cx + 100, cy + 100, cx + 100, cy + 60, cx + 80, cy + 40);
+                    ctx.fill();
+                }
+            },
+            {
+                name: 'Antennae',
+                icon: '📡',
+                drawFn: (ctx, w, h) => {
+                    const cx = w / 2;
+                    const cy = h / 2;
+                    ctx.fillStyle = '#ffffff';
+                    // Antennae balls
+                    ctx.beginPath(); ctx.arc(cx - 60, cy - 220, 8, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(cx + 60, cy - 220, 8, 0, Math.PI * 2); ctx.fill();
+                    // Sticks
+                    ctx.beginPath();
+                    ctx.moveTo(cx - 40, cy - 160); ctx.lineTo(cx - 60, cy - 220); ctx.lineTo(cx - 55, cy - 220); ctx.lineTo(cx - 35, cy - 160);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.moveTo(cx + 40, cy - 160); ctx.lineTo(cx + 60, cy - 220); ctx.lineTo(cx + 55, cy - 220); ctx.lineTo(cx + 35, cy - 160);
+                    ctx.fill();
+                }
+            },
+            {
                 name: 'Screen',
                 icon: '📺',
-                zIndex: 2,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -259,7 +320,7 @@ export const TEMPLATES: DrawingTemplate[] = [
             },
             {
                 name: 'Outlines',
-                zIndex: 999,
+                zIndex: 0,
                 locked: true,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
@@ -307,7 +368,6 @@ export const TEMPLATES: DrawingTemplate[] = [
             {
                 name: 'Crust',
                 icon: '🍕',
-                zIndex: 0,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -324,20 +384,20 @@ export const TEMPLATES: DrawingTemplate[] = [
             {
                 name: 'Toppings',
                 icon: '🍄',
-                zIndex: 1,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
                     ctx.fillStyle = '#ffffff';
-                    // Pepperonis
-                    ctx.beginPath(); ctx.arc(cx - 40, cy - 80, 20, 0, Math.PI * 2); ctx.fill();
-                    ctx.beginPath(); ctx.arc(cx + 50, cy - 50, 22, 0, Math.PI * 2); ctx.fill();
-                    ctx.beginPath(); ctx.arc(cx - 10, cy + 20, 18, 0, Math.PI * 2); ctx.fill();
+                    // Pepperonis - better spacing
+                    ctx.beginPath(); ctx.arc(cx - 30, cy - 60, 20, 0, Math.PI * 2); ctx.fill(); // Top left
+                    ctx.beginPath(); ctx.arc(cx + 40, cy - 40, 22, 0, Math.PI * 2); ctx.fill(); // Top right
+                    ctx.beginPath(); ctx.arc(cx + 10, cy + 50, 20, 0, Math.PI * 2); ctx.fill(); // Bottom
+                    ctx.beginPath(); ctx.arc(cx - 20, cy + 10, 18, 0, Math.PI * 2); ctx.fill(); // Middle
                 }
             },
             {
                 name: 'Outlines',
-                zIndex: 999,
+                zIndex: 0,
                 locked: true,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
@@ -361,9 +421,10 @@ export const TEMPLATES: DrawingTemplate[] = [
                     ctx.stroke();
 
                     // Pepperoni outlines
-                    ctx.beginPath(); ctx.arc(cx - 40, cy - 80, 20, 0, Math.PI * 2); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(cx + 50, cy - 50, 22, 0, Math.PI * 2); ctx.stroke();
-                    ctx.beginPath(); ctx.arc(cx - 10, cy + 20, 18, 0, Math.PI * 2); ctx.stroke();
+                    ctx.beginPath(); ctx.arc(cx - 30, cy - 60, 20, 0, Math.PI * 2); ctx.stroke();
+                    ctx.beginPath(); ctx.arc(cx + 40, cy - 40, 22, 0, Math.PI * 2); ctx.stroke();
+                    ctx.beginPath(); ctx.arc(cx + 10, cy + 50, 20, 0, Math.PI * 2); ctx.stroke();
+                    ctx.beginPath(); ctx.arc(cx - 20, cy + 10, 18, 0, Math.PI * 2); ctx.stroke();
                 }
             }
         ]
@@ -373,25 +434,8 @@ export const TEMPLATES: DrawingTemplate[] = [
         name: 'Butterfly',
         layers: [
             {
-                name: 'Top Wings',
-                icon: '🦋',
-                zIndex: 0,
-                drawFn: (ctx, w, h) => {
-                    const cx = w / 2;
-                    const cy = h / 2;
-                    ctx.fillStyle = '#ffffff';
-                    ctx.beginPath();
-                    ctx.ellipse(cx - 60, cy - 60, 80, 60, -Math.PI / 4, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.beginPath();
-                    ctx.ellipse(cx + 60, cy - 60, 80, 60, Math.PI / 4, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            },
-            {
                 name: 'Bottom Wings',
                 icon: '✨',
-                zIndex: 1,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -405,9 +449,23 @@ export const TEMPLATES: DrawingTemplate[] = [
                 }
             },
             {
+                name: 'Top Wings',
+                icon: '🦋',
+                drawFn: (ctx, w, h) => {
+                    const cx = w / 2;
+                    const cy = h / 2;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.ellipse(cx - 60, cy - 60, 80, 60, -Math.PI / 4, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.ellipse(cx + 60, cy - 60, 80, 60, Math.PI / 4, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            },
+            {
                 name: 'Body',
                 icon: '🐛',
-                zIndex: 2,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -418,8 +476,43 @@ export const TEMPLATES: DrawingTemplate[] = [
                 }
             },
             {
+                name: 'Head',
+                icon: '😶',
+                drawFn: (ctx, w, h) => {
+                    const cx = w / 2;
+                    const cy = h / 2;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(cx, cy - 100, 25, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            },
+            {
+                name: 'Antennae',
+                icon: '📡',
+                drawFn: (ctx, w, h) => {
+                    const cx = w / 2;
+                    const cy = h / 2;
+                    ctx.fillStyle = '#ffffff';
+                    // Thick stroke fill
+                    ctx.beginPath();
+                    ctx.moveTo(cx - 15, cy - 110);
+                    ctx.quadraticCurveTo(cx - 40, cy - 150, cx - 60, cy - 150);
+                    ctx.lineTo(cx - 65, cy - 145);
+                    ctx.quadraticCurveTo(cx - 45, cy - 145, cx - 20, cy - 105);
+                    ctx.fill();
+
+                    ctx.beginPath();
+                    ctx.moveTo(cx + 15, cy - 110);
+                    ctx.quadraticCurveTo(cx + 40, cy - 150, cx + 60, cy - 150);
+                    ctx.lineTo(cx + 65, cy - 145);
+                    ctx.quadraticCurveTo(cx + 45, cy - 145, cx + 20, cy - 105);
+                    ctx.fill();
+                }
+            },
+            {
                 name: 'Outlines',
-                zIndex: 999,
+                zIndex: 0,
                 locked: true,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
@@ -446,12 +539,17 @@ export const TEMPLATES: DrawingTemplate[] = [
                     ctx.ellipse(cx, cy, 15, 100, 0, 0, Math.PI * 2);
                     ctx.stroke();
 
+                    // Head
+                    ctx.beginPath();
+                    ctx.arc(cx, cy - 100, 25, 0, Math.PI * 2);
+                    ctx.stroke();
+
                     // Antennae
                     ctx.beginPath();
-                    ctx.moveTo(cx - 5, cy - 90); ctx.quadraticCurveTo(cx - 20, cy - 130, cx - 40, cy - 130);
+                    ctx.moveTo(cx - 15, cy - 110); ctx.quadraticCurveTo(cx - 40, cy - 150, cx - 60, cy - 150);
                     ctx.stroke();
                     ctx.beginPath();
-                    ctx.moveTo(cx + 5, cy - 90); ctx.quadraticCurveTo(cx + 20, cy - 130, cx + 40, cy - 130);
+                    ctx.moveTo(cx + 15, cy - 110); ctx.quadraticCurveTo(cx + 40, cy - 150, cx + 60, cy - 150);
                     ctx.stroke();
                 }
             }
@@ -464,7 +562,6 @@ export const TEMPLATES: DrawingTemplate[] = [
             {
                 name: 'Bottom Bun',
                 icon: '🍞',
-                zIndex: 0,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -477,7 +574,6 @@ export const TEMPLATES: DrawingTemplate[] = [
             {
                 name: 'Patty',
                 icon: '🥩',
-                zIndex: 1,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -490,7 +586,6 @@ export const TEMPLATES: DrawingTemplate[] = [
             {
                 name: 'Cheese',
                 icon: '🧀',
-                zIndex: 2,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -506,7 +601,6 @@ export const TEMPLATES: DrawingTemplate[] = [
             {
                 name: 'Lettuce',
                 icon: '🥬',
-                zIndex: 3,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -524,7 +618,6 @@ export const TEMPLATES: DrawingTemplate[] = [
             {
                 name: 'Tomato',
                 icon: '🍅',
-                zIndex: 4,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -537,7 +630,6 @@ export const TEMPLATES: DrawingTemplate[] = [
             {
                 name: 'Top Bun',
                 icon: '🥯',
-                zIndex: 5,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
@@ -550,7 +642,7 @@ export const TEMPLATES: DrawingTemplate[] = [
             },
             {
                 name: 'Outlines',
-                zIndex: 999,
+                zIndex: 0,
                 locked: true,
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
@@ -574,6 +666,9 @@ export const TEMPLATES: DrawingTemplate[] = [
                     for (let i = 0; i < 10; i++) {
                         ctx.quadraticCurveTo(cx - 120 + i * 24 + 12, cy + 80, cx - 120 + (i + 1) * 24, cy + 60);
                     }
+                    ctx.lineTo(cx + 120, cy + 40);
+                    ctx.lineTo(cx - 120, cy + 40);
+                    ctx.closePath();
                     ctx.stroke();
 
                     // Tomato
