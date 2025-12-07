@@ -422,6 +422,7 @@ function App() {
       {/* 2. MAIN WORKSPACE (Canvas) */}
       <div
         className="main-workspace"
+        style={{ touchAction: 'none' }} // Prevent browser zoom/pan
         onWheel={(e) => {
           // Zoom on Wheel
           e.preventDefault();
@@ -450,6 +451,62 @@ function App() {
         }}
         onMouseUp={() => setIsPanning(false)}
         onMouseLeave={() => setIsPanning(false)}
+        // Touch Handlers for Pinch-to-Zoom & Pan
+        onTouchStart={(e) => {
+          if (e.touches.length === 2) {
+            e.preventDefault();
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            const dist = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
+            const cx = (touch1.clientX + touch2.clientX) / 2;
+            const cy = (touch1.clientY + touch2.clientY) / 2;
+
+            // Store initial values in refs
+            (e.currentTarget as any)._lastTouchDist = dist;
+            (e.currentTarget as any)._lastTouchCenter = { x: cx, y: cy };
+            setIsPanning(true); // Re-use panning state to indicating active manipulation
+          }
+        }}
+        onTouchMove={(e) => {
+          if (e.touches.length === 2) {
+            e.preventDefault();
+            const touch1 = e.touches[0];
+            const touch2 = e.touches[1];
+            const dist = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
+            const cx = (touch1.clientX + touch2.clientX) / 2;
+            const cy = (touch1.clientY + touch2.clientY) / 2;
+
+            const element = e.currentTarget as any;
+            const lastDist = element._lastTouchDist || dist;
+            const lastCenter = element._lastTouchCenter || { x: cx, y: cy };
+
+            // Calculate Scale Change
+            const scaleFactor = dist / lastDist;
+            // Calculate Pan Change
+            const dx = cx - lastCenter.x;
+            const dy = cy - lastCenter.y;
+
+            setViewState(prev => {
+              const newScale = Math.min(Math.max(prev.scale * scaleFactor, 0.5), 5);
+              return {
+                scale: newScale,
+                offset: {
+                  x: prev.offset.x + dx,
+                  y: prev.offset.y + dy
+                }
+              };
+            });
+
+            // Update refs
+            element._lastTouchDist = dist;
+            element._lastTouchCenter = { x: cx, y: cy };
+          }
+        }}
+        onTouchEnd={(e) => {
+          if (e.touches.length < 2) {
+            setIsPanning(false);
+          }
+        }}
       >
         <div
           className={`canvas-stack ${activeLayerId ? 'focus-mode' : ''}`}
