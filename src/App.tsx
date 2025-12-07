@@ -18,6 +18,11 @@ function App() {
   const [brushSize, setBrushSize] = useState(50);
   const [tool, setTool] = useState<'brush' | 'eraser' | 'eyedropper'>('brush');
 
+  // UI State - Floating Panels
+  // Default: Open on PC (width > 900), Closed on Mobile
+  const [showTemplates, setShowTemplates] = useState(window.innerWidth > 900);
+  const [showLayers, setShowLayers] = useState(window.innerWidth > 900);
+
   // Load default template on start
   useEffect(() => {
     loadTemplate(TEMPLATES[0]);
@@ -39,27 +44,38 @@ function App() {
     setActiveLayerId(firstSelectable?.id || '');
     setLoadedTemplate(template);
     initializedRefs.current.clear();
+
+    // On mobile, auto-close template picker after selection to show canvas
+    if (window.innerWidth <= 900) {
+      setShowTemplates(false);
+    }
   };
 
+  // Safe Draw Effect (with timeout for DOM readiness)
   useEffect(() => {
     if (!loadedTemplate) return;
 
-    layers.forEach((layer, index) => {
-      if (initializedRefs.current.has(layer.id)) return;
+    // Small delay to ensure DOM + Canvas elements are fully rendered/sized
+    const timer = setTimeout(() => {
+      layers.forEach((layer, index) => {
+        if (initializedRefs.current.has(layer.id)) return;
 
-      const canvas = document.querySelector(`.layer-wrapper:nth-child(${index + 1}) canvas`) as HTMLCanvasElement;
-      if (canvas) {
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.clearRect(0, 0, 800, 600);
-          const templateLayer = loadedTemplate.layers[index];
-          if (templateLayer && templateLayer.drawFn) {
-            templateLayer.drawFn(ctx, 800, 600);
-            initializedRefs.current.add(layer.id);
+        const canvas = document.querySelector(`.layer-wrapper:nth-child(${index + 1}) canvas`) as HTMLCanvasElement;
+        if (canvas) {
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.clearRect(0, 0, 800, 600);
+            const templateLayer = loadedTemplate.layers[index];
+            if (templateLayer && templateLayer.drawFn) {
+              templateLayer.drawFn(ctx, 800, 600);
+              initializedRefs.current.add(layer.id);
+            }
           }
         }
-      }
-    });
+      });
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [layers, loadedTemplate]);
 
   const addLayer = () => {
@@ -120,8 +136,6 @@ function App() {
   const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     // Logic for Scaling:
-    // The canvas stack might be visually smaller than 800x600.
-    // logical size is fixed 800x600.
     const scaleX = 800 / rect.width;
     const scaleY = 600 / rect.height;
 
@@ -130,13 +144,10 @@ function App() {
 
     // EYEDROPPER LOGIC
     if (tool === 'eyedropper') {
-      // Scan layers top DOWN to find the first visible pixel
-      // We actually need z-index sorted layers
       const sortedLayers = [...layers].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)).reverse();
 
       for (const layer of sortedLayers) {
         if (!layer.visible) continue;
-        // We need to find the DOM index. original layers array index.
         const index = layers.findIndex(l => l.id === layer.id);
         if (index === -1) continue;
 
@@ -148,17 +159,16 @@ function App() {
 
         try {
           const pixel = ctx.getImageData(x, y, 1, 1).data;
-          if (pixel[3] > 0) { // Not transparent
+          if (pixel[3] > 0) {
             const hexColor = `#${toHex(pixel[0])}${toHex(pixel[1])}${toHex(pixel[2])}`;
             setColor(hexColor);
-            setTool('brush'); // Auto switch back
+            setTool('brush');
             return;
           }
         } catch (e) {
           console.error(e);
         }
       }
-      // If nothing hit (background), usually white
       setColor('#ffffff');
       setTool('brush');
       return;
@@ -189,11 +199,9 @@ function App() {
 
   return (
     <div className="app-container">
-      <div className="left-panel">
-        <TemplateSelector onSelect={loadTemplate} />
-      </div>
 
-      <div className="center-panel">
+      {/* 1. TOP TOOLBAR (Always Visible) */}
+      <div className="toolbar-container">
         <Toolbar
           color={color}
           setColor={setColor}
@@ -202,42 +210,62 @@ function App() {
           tool={tool}
           setTool={setTool}
           onSave={handleSave}
+          showTemplates={showTemplates}
+          setShowTemplates={setShowTemplates}
+          showLayers={showLayers}
+          setShowLayers={setShowLayers}
         />
+      </div>
 
-        <div className="main-workspace">
-          <div
-            className={`canvas-stack ${activeLayerId ? 'focus-mode' : ''}`}
-            onClick={handleCanvasClick}
-            style={{ cursor: tool === 'eyedropper' ? 'crosshair' : 'default' }}
-          >
-            {layers.map((layer) => (
-              <div
-                key={layer.id}
-                className={`layer-wrapper ${layer.id === activeLayerId ? 'active' : ''}`}
-                style={{ zIndex: layer.zIndex ?? 0, display: layer.visible ? 'block' : 'none' }}
-              >
-                <CanvasLayer
-                  width={800}
-                  height={600}
-                  color={layer.id === activeLayerId ? color : 'transparent'}
-                  lineWidth={brushSize}
-                  tool={tool === 'eyedropper' ? undefined : tool} // Disable drawing when picking
-                  lockAlpha={layer.lockAlpha ?? false}
-                  className="drawing-layer"
-                  disabled={layer.id !== activeLayerId || layer.locked || tool === 'eyedropper'}
-                />
-              </div>
-            ))}
-          </div>
+      {/* 2. MAIN WORKSPACE (Canvas) */}
+      <div className="main-workspace">
+        <div
+          className={`canvas-stack ${activeLayerId ? 'focus-mode' : ''}`}
+          onClick={handleCanvasClick}
+          style={{ cursor: tool === 'eyedropper' ? 'crosshair' : 'default' }}
+        >
+          {layers.map((layer) => (
+            <div
+              key={layer.id}
+              className={`layer-wrapper ${layer.id === activeLayerId ? 'active' : ''}`}
+              style={{ zIndex: layer.zIndex ?? 0, display: layer.visible ? 'block' : 'none' }}
+            >
+              <CanvasLayer
+                width={800}
+                height={600}
+                color={layer.id === activeLayerId ? color : 'transparent'}
+                lineWidth={brushSize}
+                tool={tool === 'eyedropper' ? undefined : tool}
+                lockAlpha={layer.lockAlpha ?? false}
+                className="drawing-layer"
+                disabled={layer.id !== activeLayerId || layer.locked || tool === 'eyedropper'}
+              />
+            </div>
+          ))}
         </div>
       </div>
 
-      <div className="right-panel">
-        <div className="layers-panel">
+      {/* 3. FLOATING PANELS */}
+
+      {/* Left Panel: Templates */}
+      {showTemplates && (
+        <div className="floating-panel left-panel">
+          <h3 className="panel-title">Pictures <button className="close-btn" onClick={() => setShowTemplates(false)}>✖</button></h3>
+          <TemplateSelector onSelect={loadTemplate} />
+        </div>
+      )}
+
+      {/* Right Panel: Layers */}
+      {showLayers && (
+        <div className="floating-panel right-panel">
           <div className="layers-header">
             <h3>Layers</h3>
-            <button onClick={addLayer} className="mini-btn" title="Add Layer">➕</button>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={addLayer} className="mini-btn" title="Add Layer">➕</button>
+              <button className="close-btn" onClick={() => setShowLayers(false)}>✖</button>
+            </div>
           </div>
+
           <div className="layers-list">
             {[...layers]
               .sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0))
@@ -256,12 +284,11 @@ function App() {
                   <span className="layer-icon">{layer.icon || '📄'}</span>
                   <span className="layer-name">{layer.name}</span>
 
-                  {/* ALPHA LOCK TOGGLE */}
                   {!layer.locked && (
                     <span
                       onClick={(e) => toggleAlphaLock(layer.id, e)}
                       className={`action-icon ${layer.lockAlpha ? 'active' : ''}`}
-                      title={layer.lockAlpha ? "Alpha Locked (Click to Unlock)" : "Alpha Unlocked (Click to Lock)"}
+                      title={layer.lockAlpha ? "Alpha Locked" : "Alpha Unlocked"}
                       style={{ marginLeft: 'auto', opacity: layer.lockAlpha ? 1 : 0.3, cursor: 'pointer' }}
                     >
                       {layer.lockAlpha ? '🔒' : '🔓'}
@@ -272,7 +299,7 @@ function App() {
                 </div>
               ))}
           </div>
-          <div style={{ padding: '1rem' }}>
+          <div style={{ padding: '1rem 0' }}>
             <button
               className="action-btn secondary"
               style={{ width: '100%', fontSize: '0.9rem' }}
@@ -285,7 +312,8 @@ function App() {
             </button>
           </div>
         </div>
-      </div>
+      )}
+
     </div>
   );
 }

@@ -6,16 +6,34 @@ interface ToolbarProps {
     tool: 'brush' | 'eraser' | 'eyedropper';
     setTool: (tool: 'brush' | 'eraser' | 'eyedropper') => void;
     onSave: () => void;
+    showTemplates: boolean;
+    setShowTemplates: (show: boolean) => void;
+    showLayers: boolean;
+    setShowLayers: (show: boolean) => void;
 }
 
 export const Toolbar = ({
     color, setColor,
     brushSize, setBrushSize,
     tool, setTool,
-    onSave
+    onSave,
+    showTemplates, setShowTemplates,
+    showLayers, setShowLayers
 }: ToolbarProps) => {
     return (
         <div className="toolbar-top">
+            <div className="tool-group">
+                <button
+                    className={`tool-btn ${showTemplates ? 'active' : ''}`}
+                    onClick={() => setShowTemplates(!showTemplates)}
+                    title="Templates"
+                >
+                    🖼️
+                </button>
+            </div>
+
+            <div className="divider" />
+
             <div className="tool-group">
                 <button
                     className={`tool-btn ${tool === 'brush' ? 'active' : ''}`}
@@ -24,6 +42,18 @@ export const Toolbar = ({
                 >
                     🖌️
                 </button>
+                <div className="color-picker-wrapper">
+                    <input
+                        type="color"
+                        value={color}
+                        onChange={(e) => {
+                            setColor(e.target.value);
+                            setTool('brush'); // Auto-switch to brush on color pick
+                        }}
+                        className="color-picker"
+                        title="Choose Color"
+                    />
+                </div>
                 <button
                     className={`tool-btn ${tool === 'eraser' ? 'active' : ''}`}
                     onClick={() => setTool('eraser')}
@@ -42,17 +72,7 @@ export const Toolbar = ({
 
             <div className="divider" />
 
-            <input
-                type="color"
-                value={color}
-                onChange={(e) => {
-                    setColor(e.target.value);
-                    setTool('brush'); // Auto-switch to brush on color pick
-                }}
-                title="Brush Color"
-                className="color-picker"
-            />
-
+            {/* Size Slider */}
             <div className="size-slider">
                 <span>Size: {brushSize}px</span>
                 <input
@@ -70,6 +90,18 @@ export const Toolbar = ({
             <button onClick={onSave} className="action-btn primary" title="Save Image">
                 💾 Save
             </button>
+
+            <div className="divider" />
+
+            <div className="tool-group">
+                <button
+                    className={`tool-btn ${showLayers ? 'active' : ''}`}
+                    onClick={() => setShowLayers(!showLayers)}
+                    title="Layers"
+                >
+                    📚
+                </button>
+            </div>
         </div>
     );
 };
