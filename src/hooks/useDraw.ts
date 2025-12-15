@@ -18,6 +18,7 @@ export const useDraw = (onDraw: (draw: DrawContext) => void) => {
 
     const onPointerDown = () => {
         setDrawing(true);
+        hasDrawn.current = false;
     };
 
     const onPointerUp = () => {
@@ -46,6 +47,7 @@ export const useDraw = (onDraw: (draw: DrawContext) => void) => {
 
         onDraw({ ctx, currentPoint, prevPoint: prevPoint.current });
         prevPoint.current = currentPoint;
+        hasDrawn.current = true;
     };
 
     // Add event listeners for end/leave to ensure drawing stops
@@ -60,10 +62,13 @@ export const useDraw = (onDraw: (draw: DrawContext) => void) => {
         return () => window.removeEventListener('pointerup', handleUp);
     }, []);
 
+    const hasDrawn = useRef(false);
+
     return {
         canvasRef,
         onPointerDown,
         onPointerMove,
-        onPointerUp
+        onPointerUp,
+        hasDrawn
     };
 };

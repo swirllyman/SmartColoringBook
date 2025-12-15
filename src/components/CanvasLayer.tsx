@@ -9,6 +9,7 @@ interface CanvasLayerProps {
     disabled?: boolean;
     tool?: 'brush' | 'eraser';
     lockAlpha?: boolean;
+    onDrawEnd?: () => void;
 }
 
 export const CanvasLayer = ({
@@ -16,15 +17,21 @@ export const CanvasLayer = ({
     color, lineWidth,
     className, disabled,
     tool = 'brush',
-    lockAlpha = false
+    lockAlpha = false,
+    onDrawEnd
 }: CanvasLayerProps) => {
-    const { canvasRef, onPointerDown: pDown, onPointerMove: pMove, onPointerUp: pUp } = useDraw(drawLine);
+    const { canvasRef, onPointerDown: pDown, onPointerMove: pMove, onPointerUp: pUp, hasDrawn } = useDraw(drawLine);
+
+    const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+        pUp();
+        if (onDrawEnd && hasDrawn.current) onDrawEnd();
+    };
 
     const handlers = disabled ? {} : {
         onPointerDown: pDown,
         onPointerMove: pMove,
-        onPointerUp: pUp,
-        onPointerLeave: pUp
+        onPointerUp: handlePointerUp,
+        onPointerLeave: handlePointerUp
     };
 
     function drawLine({ ctx, currentPoint, prevPoint }: DrawContext) {

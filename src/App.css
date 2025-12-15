@@ -60,17 +60,18 @@ body {
   pointer-events: auto;
   display: flex;
   gap: 1rem;
-  padding: 0.75rem 1.5rem;
+  padding: 0.5rem 1rem;
   background: var(--panel-bg);
   backdrop-filter: blur(10px);
-  border-radius: 50px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 30px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  /* Softer, bigger shadow */
   align-items: center;
-  flex-wrap: nowrap;
-  /* Keep single line */
+  flex-wrap: wrap;
+  /* Allow wrapping for small screens */
   border: 1px solid var(--border-color);
   max-width: 95vw;
-  /* overflow-x: auto; -- Removed to allow dropdowns */
+  justify-content: center;
 }
 
 .tool-group {

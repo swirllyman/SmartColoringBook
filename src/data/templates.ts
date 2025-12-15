@@ -4,6 +4,7 @@ export const TEMPLATES: DrawingTemplate[] = [
     {
         id: 'flower',
         name: 'Big Flower',
+        icon: '🌻',
         layers: [
             {
                 name: 'Stem',
@@ -100,6 +101,7 @@ export const TEMPLATES: DrawingTemplate[] = [
     {
         id: 'kitty_face',
         name: 'Kitty Face',
+        icon: '🐱',
         layers: [
             {
                 name: 'Ears',
@@ -244,6 +246,7 @@ export const TEMPLATES: DrawingTemplate[] = [
     {
         id: 'robot',
         name: 'Robot',
+        icon: '🤖',
         layers: [
             {
                 name: 'Body',
@@ -364,6 +367,7 @@ export const TEMPLATES: DrawingTemplate[] = [
     {
         id: 'pizza',
         name: 'Pizza Slice',
+        icon: '🍕',
         layers: [
             {
                 name: 'Crust',
@@ -432,6 +436,7 @@ export const TEMPLATES: DrawingTemplate[] = [
     {
         id: 'butterfly',
         name: 'Butterfly',
+        icon: '🦋',
         layers: [
             {
                 name: 'Bottom Wings',
@@ -440,11 +445,19 @@ export const TEMPLATES: DrawingTemplate[] = [
                     const cx = w / 2;
                     const cy = h / 2;
                     ctx.fillStyle = '#ffffff';
+
+                    // Left Bottom Wing
                     ctx.beginPath();
-                    ctx.ellipse(cx - 50, cy + 60, 60, 50, Math.PI / 4, 0, Math.PI * 2);
+                    ctx.moveTo(cx - 10, cy + 30);
+                    ctx.bezierCurveTo(cx - 60, cy + 40, cx - 90, cy + 90, cx - 50, cy + 130);
+                    ctx.bezierCurveTo(cx - 20, cy + 150, cx - 10, cy + 100, cx - 10, cy + 80);
                     ctx.fill();
+
+                    // Right Bottom Wing
                     ctx.beginPath();
-                    ctx.ellipse(cx + 50, cy + 60, 60, 50, -Math.PI / 4, 0, Math.PI * 2);
+                    ctx.moveTo(cx + 10, cy + 30);
+                    ctx.bezierCurveTo(cx + 60, cy + 40, cx + 90, cy + 90, cx + 50, cy + 130);
+                    ctx.bezierCurveTo(cx + 20, cy + 150, cx + 10, cy + 100, cx + 10, cy + 80);
                     ctx.fill();
                 }
             },
@@ -455,35 +468,53 @@ export const TEMPLATES: DrawingTemplate[] = [
                     const cx = w / 2;
                     const cy = h / 2;
                     ctx.fillStyle = '#ffffff';
+
+                    // Left Top Wing
                     ctx.beginPath();
-                    ctx.ellipse(cx - 60, cy - 60, 80, 60, -Math.PI / 4, 0, Math.PI * 2);
+                    ctx.moveTo(cx - 10, cy + 10);
+                    ctx.bezierCurveTo(cx - 80, cy - 60, cx - 140, cy - 60, cx - 130, cy + 20);
+                    ctx.bezierCurveTo(cx - 120, cy + 80, cx - 40, cy + 60, cx - 10, cy + 30);
                     ctx.fill();
+
+                    // Right Top Wing
                     ctx.beginPath();
-                    ctx.ellipse(cx + 60, cy - 60, 80, 60, Math.PI / 4, 0, Math.PI * 2);
+                    ctx.moveTo(cx + 10, cy + 10);
+                    ctx.bezierCurveTo(cx + 80, cy - 60, cx + 140, cy - 60, cx + 130, cy + 20);
+                    ctx.bezierCurveTo(cx + 120, cy + 80, cx + 40, cy + 60, cx + 10, cy + 30);
                     ctx.fill();
+                }
+            },
+            {
+                name: 'Wing Spots',
+                icon: '⚪',
+                drawFn: (ctx, w, h) => {
+                    const cx = w / 2;
+                    const cy = h / 2;
+                    ctx.fillStyle = '#ffffff';
+
+                    // Top Wing Spots
+                    ctx.beginPath(); ctx.arc(cx - 90, cy - 10, 15, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(cx + 90, cy - 10, 15, 0, Math.PI * 2); ctx.fill();
+
+                    // Bottom Wing Spots
+                    ctx.beginPath(); ctx.arc(cx - 50, cy + 100, 10, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.arc(cx + 50, cy + 100, 10, 0, Math.PI * 2); ctx.fill();
                 }
             },
             {
                 name: 'Body',
-                icon: '🐛',
+                icon: '�',
                 drawFn: (ctx, w, h) => {
                     const cx = w / 2;
                     const cy = h / 2;
                     ctx.fillStyle = '#ffffff';
+                    // Thorax & Abdomen
                     ctx.beginPath();
-                    ctx.ellipse(cx, cy, 15, 100, 0, 0, Math.PI * 2);
+                    ctx.ellipse(cx, cy + 40, 12, 60, 0, 0, Math.PI * 2);
                     ctx.fill();
-                }
-            },
-            {
-                name: 'Head',
-                icon: '😶',
-                drawFn: (ctx, w, h) => {
-                    const cx = w / 2;
-                    const cy = h / 2;
-                    ctx.fillStyle = '#ffffff';
+                    // Head
                     ctx.beginPath();
-                    ctx.arc(cx, cy - 100, 25, 0, Math.PI * 2);
+                    ctx.arc(cx, cy - 30, 20, 0, Math.PI * 2);
                     ctx.fill();
                 }
             },
@@ -494,19 +525,21 @@ export const TEMPLATES: DrawingTemplate[] = [
                     const cx = w / 2;
                     const cy = h / 2;
                     ctx.fillStyle = '#ffffff';
-                    // Thick stroke fill
+
+                    // Left
                     ctx.beginPath();
-                    ctx.moveTo(cx - 15, cy - 110);
-                    ctx.quadraticCurveTo(cx - 40, cy - 150, cx - 60, cy - 150);
-                    ctx.lineTo(cx - 65, cy - 145);
-                    ctx.quadraticCurveTo(cx - 45, cy - 145, cx - 20, cy - 105);
+                    ctx.moveTo(cx - 10, cy - 40);
+                    ctx.quadraticCurveTo(cx - 30, cy - 80, cx - 50, cy - 80);
+                    ctx.lineTo(cx - 55, cy - 75); // Thickness hack/tip
+                    ctx.quadraticCurveTo(cx - 35, cy - 75, cx - 15, cy - 35);
                     ctx.fill();
 
+                    // Right
                     ctx.beginPath();
-                    ctx.moveTo(cx + 15, cy - 110);
-                    ctx.quadraticCurveTo(cx + 40, cy - 150, cx + 60, cy - 150);
-                    ctx.lineTo(cx + 65, cy - 145);
-                    ctx.quadraticCurveTo(cx + 45, cy - 145, cx + 20, cy - 105);
+                    ctx.moveTo(cx + 10, cy - 40);
+                    ctx.quadraticCurveTo(cx + 30, cy - 80, cx + 50, cy - 80);
+                    ctx.lineTo(cx + 55, cy - 75);
+                    ctx.quadraticCurveTo(cx + 35, cy - 75, cx + 15, cy - 35);
                     ctx.fill();
                 }
             },
@@ -518,38 +551,60 @@ export const TEMPLATES: DrawingTemplate[] = [
                     const cx = w / 2;
                     const cy = h / 2;
                     ctx.strokeStyle = '#000';
-                    ctx.lineWidth = 4;
+                    ctx.lineWidth = 5;
+                    ctx.lineJoin = 'round';
+                    ctx.lineCap = 'round';
 
-                    // Wings
+                    // Top Wings
                     ctx.beginPath();
-                    ctx.ellipse(cx - 60, cy - 60, 80, 60, -Math.PI / 4, 0, Math.PI * 2);
+                    ctx.moveTo(cx - 10, cy + 10);
+                    ctx.bezierCurveTo(cx - 80, cy - 60, cx - 140, cy - 60, cx - 130, cy + 20);
+                    ctx.bezierCurveTo(cx - 120, cy + 80, cx - 40, cy + 60, cx - 10, cy + 30);
                     ctx.stroke();
+
                     ctx.beginPath();
-                    ctx.ellipse(cx + 60, cy - 60, 80, 60, Math.PI / 4, 0, Math.PI * 2);
+                    ctx.moveTo(cx + 10, cy + 10);
+                    ctx.bezierCurveTo(cx + 80, cy - 60, cx + 140, cy - 60, cx + 130, cy + 20);
+                    ctx.bezierCurveTo(cx + 120, cy + 80, cx + 40, cy + 60, cx + 10, cy + 30);
                     ctx.stroke();
+
+                    // Bottom Wings
                     ctx.beginPath();
-                    ctx.ellipse(cx - 50, cy + 60, 60, 50, Math.PI / 4, 0, Math.PI * 2);
+                    ctx.moveTo(cx - 10, cy + 30);
+                    ctx.bezierCurveTo(cx - 60, cy + 40, cx - 90, cy + 90, cx - 50, cy + 130);
+                    ctx.bezierCurveTo(cx - 20, cy + 150, cx - 10, cy + 100, cx - 10, cy + 80);
                     ctx.stroke();
+
                     ctx.beginPath();
-                    ctx.ellipse(cx + 50, cy + 60, 60, 50, -Math.PI / 4, 0, Math.PI * 2);
+                    ctx.moveTo(cx + 10, cy + 30);
+                    ctx.bezierCurveTo(cx + 60, cy + 40, cx + 90, cy + 90, cx + 50, cy + 130);
+                    ctx.bezierCurveTo(cx + 20, cy + 150, cx + 10, cy + 100, cx + 10, cy + 80);
                     ctx.stroke();
+
+                    // Spots
+                    ctx.beginPath(); ctx.arc(cx - 90, cy - 10, 15, 0, Math.PI * 2); ctx.stroke();
+                    ctx.beginPath(); ctx.arc(cx + 90, cy - 10, 15, 0, Math.PI * 2); ctx.stroke();
+                    ctx.beginPath(); ctx.arc(cx - 50, cy + 100, 10, 0, Math.PI * 2); ctx.stroke();
+                    ctx.beginPath(); ctx.arc(cx + 50, cy + 100, 10, 0, Math.PI * 2); ctx.stroke();
 
                     // Body
                     ctx.beginPath();
-                    ctx.ellipse(cx, cy, 15, 100, 0, 0, Math.PI * 2);
+                    ctx.ellipse(cx, cy + 40, 12, 60, 0, 0, Math.PI * 2);
                     ctx.stroke();
-
                     // Head
                     ctx.beginPath();
-                    ctx.arc(cx, cy - 100, 25, 0, Math.PI * 2);
+                    ctx.arc(cx, cy - 30, 20, 0, Math.PI * 2);
                     ctx.stroke();
 
-                    // Antennae
+                    // Antennae Outline
                     ctx.beginPath();
-                    ctx.moveTo(cx - 15, cy - 110); ctx.quadraticCurveTo(cx - 40, cy - 150, cx - 60, cy - 150);
+                    ctx.moveTo(cx - 10, cy - 40);
+                    ctx.quadraticCurveTo(cx - 30, cy - 80, cx - 50, cy - 80);
                     ctx.stroke();
+
                     ctx.beginPath();
-                    ctx.moveTo(cx + 15, cy - 110); ctx.quadraticCurveTo(cx + 40, cy - 150, cx + 60, cy - 150);
+                    ctx.moveTo(cx + 10, cy - 40);
+                    ctx.quadraticCurveTo(cx + 30, cy - 80, cx + 50, cy - 80);
                     ctx.stroke();
                 }
             }
@@ -558,6 +613,7 @@ export const TEMPLATES: DrawingTemplate[] = [
     {
         id: 'burger',
         name: 'Giant Burger',
+        icon: '🍔',
         layers: [
             {
                 name: 'Bottom Bun',

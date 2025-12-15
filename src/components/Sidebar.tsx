@@ -1,12 +1,12 @@
 import './Sidebar.css';
 
 interface SidebarProps {
-    activePanel: 'none' | 'templates' | 'layers' | 'ruler';
-    setActivePanel: (panel: 'none' | 'templates' | 'layers' | 'ruler') => void;
+    activePanel: 'none' | 'templates' | 'layers' | 'ruler' | 'stamps' | 'history';
+    setActivePanel: (panel: 'none' | 'templates' | 'layers' | 'ruler' | 'stamps' | 'history') => void;
 }
 
 export const Sidebar = ({ activePanel, setActivePanel }: SidebarProps) => {
-    const togglePanel = (panel: 'templates' | 'layers' | 'ruler') => {
+    const togglePanel = (panel: 'templates' | 'layers' | 'ruler' | 'stamps' | 'history') => {
         setActivePanel(activePanel === panel ? 'none' : panel);
     };
 
@@ -28,11 +28,25 @@ export const Sidebar = ({ activePanel, setActivePanel }: SidebarProps) => {
                     📚
                 </button>
                 <button
+                    className={`sidebar-btn ${activePanel === 'stamps' ? 'active' : ''}`}
+                    onClick={() => togglePanel('stamps')}
+                    title="Stamps"
+                >
+                    🧸
+                </button>
+                <button
                     className={`sidebar-btn ${activePanel === 'ruler' ? 'active' : ''}`}
                     onClick={() => togglePanel('ruler')}
                     title="Ruler / Grid"
                 >
                     📏
+                </button>
+                <button
+                    className={`sidebar-btn ${activePanel === 'history' ? 'active' : ''}`}
+                    onClick={() => togglePanel('history')}
+                    title="History"
+                >
+                    📜
                 </button>
             </div>
         </div>

@@ -10,5 +10,6 @@ export interface TemplateLayer {
 export interface DrawingTemplate {
     id: string;
     name: string;
+    icon?: string; // Emoji representing the template
     layers: TemplateLayer[];
 }

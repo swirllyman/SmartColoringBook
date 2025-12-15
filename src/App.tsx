@@ -3,10 +3,21 @@ import { CanvasLayer } from './components/CanvasLayer';
 import { Toolbar } from './components/Toolbar';
 import { Sidebar } from './components/Sidebar';
 import { TemplateSelector } from './components/TemplateSelector';
+import { StampsPanel } from './components/StampsPanel';
+import { floodFill } from './utils/floodFill';
 import type { Layer } from './types/layer';
 import type { DrawingTemplate } from './types/template';
 import { TEMPLATES } from './data/templates';
 import './App.css';
+
+interface Sticker {
+  id: string;
+  emoji: string;
+  x: number;
+  y: number;
+  size: number;
+  rotation: number;
+}
 
 function App() {
   const [layers, setLayers] = useState<Layer[]>([]);
@@ -34,12 +45,50 @@ function App() {
   // Tools state
   const [color, setColor] = useState('#000000');
   const [brushSize, setBrushSize] = useState(50);
-  const [tool, setTool] = useState<'brush' | 'eraser' | 'eyedropper'>('brush');
+  const [tool, setTool] = useState<'brush' | 'eraser' | 'eyedropper' | 'fill' | 'stamp'>('brush');
+  const [currentStamp, setCurrentStamp] = useState('⭐');
+
+  // Stickers State
+  const [stickers, setStickers] = useState<Sticker[]>([]);
+  const [draggedStickerId, setDraggedStickerId] = useState<string | null>(null);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
+
+  // History State
+  // History State
+  interface LayerData {
+    id: string;
+    dataUrl: string;
+  }
+
+  interface HistoryItem {
+    id: string;
+    thumbnail: string;
+    timestamp: number;
+    // Full State for Restoration
+    template: DrawingTemplate;
+    stickers: Sticker[];
+    layers: Layer[];
+    layerImages: LayerData[];
+  }
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+
+  // Ref to hold restored images pending draw
+  const restoredImagesRef = useRef<LayerData[] | null>(null);
+
+  // Dirty State (Has the user made changes?)
+  const [isDirty, setIsDirty] = useState(false);
 
   // UI State - Active Panel
-  const [activePanel, setActivePanel] = useState<'none' | 'templates' | 'layers' | 'ruler'>(
+  const [activePanel, setActivePanel] = useState<'none' | 'templates' | 'layers' | 'ruler' | 'stamps' | 'history'>(
     window.innerWidth > 900 ? 'templates' : 'none'
   );
+
+  // Auto-Exit Stamp Tool when Panel Closes
+  useEffect(() => {
+    if (activePanel !== 'stamps' && tool === 'stamp') {
+      setTool('brush');
+    }
+  }, [activePanel, tool]);
 
   // Canvas Navigation State
   const [viewState, setViewState] = useState({ scale: 1, offset: { x: 0, y: 0 } });
@@ -49,11 +98,89 @@ function App() {
   const [gridOpacity, setGridOpacity] = useState(0.1);
   const [gridScale, setGridScale] = useState(50);
 
-  useEffect(() => {
-    console.log("🚀 FLOATING UI CONTAINER MODE ACTIVE 🚀");
-  }, []);
+
+
+  // Helper: Compose current canvas state to DataURL
+  const composeCanvas = (): string | null => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 800;
+    canvas.height = 600;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 800, 600);
+
+    // Draw Layers
+    layers.forEach((layer) => {
+      if (!layer.visible) return;
+      // Robust selection using unique IDs
+      const wrapper = document.getElementById(`layer-wrapper-${layer.id}`);
+      const layerCanvas = wrapper?.querySelector('canvas') as HTMLCanvasElement;
+
+      if (layerCanvas) {
+        ctx.drawImage(layerCanvas, 0, 0);
+      }
+    });
+
+    // Draw Stickers
+    stickers.forEach(sticker => {
+      ctx.save();
+      ctx.translate(sticker.x, sticker.y);
+      ctx.rotate(sticker.rotation);
+      ctx.font = `${sticker.size}px serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(sticker.emoji, 0, 0);
+      ctx.restore();
+    });
+
+    return canvas.toDataURL();
+  };
+
+  const captureHistoryState = (): HistoryItem | null => {
+    if (!loadedTemplate || layers.length === 0) return null;
+
+    console.log('Capturing History State...');
+    const snapshot = composeCanvas();
+    if (!snapshot) return null;
+
+    const layerImages: LayerData[] = [];
+    layers.forEach(layer => {
+      const wrapper = document.getElementById(`layer-wrapper-${layer.id}`);
+      const cvs = wrapper?.querySelector('canvas') as HTMLCanvasElement;
+      if (cvs) {
+        layerImages.push({
+          id: layer.id,
+          dataUrl: cvs.toDataURL()
+        });
+      }
+    });
+
+    return {
+      id: Date.now().toString(),
+      thumbnail: snapshot,
+      timestamp: Date.now(),
+      template: loadedTemplate,
+      stickers: [...stickers],
+      layers: [...layers],
+      layerImages: layerImages
+    };
+  };
 
   const loadTemplate = (template: DrawingTemplate) => {
+    // 1. Save History (Only if dirty)
+    if (layers.length > 0 && loadedTemplate && isDirty) {
+      const historyItem = captureHistoryState();
+      if (historyItem) {
+        setHistory(prev => [historyItem, ...prev].slice(0, 10));
+      }
+    }
+
+    // 2. Clear & Load New
+    setStickers([]);
+    setIsDirty(false); // Reset dirty flag
+
     const newLayers: Layer[] = template.layers.map((tl, index) => ({
       id: `${template.id}-${index}`,
       name: tl.name,
@@ -61,7 +188,7 @@ function App() {
       icon: tl.icon,
       locked: tl.locked,
       zIndex: tl.zIndex ?? index,
-      lockAlpha: true // Default templates to alpha-locked
+      lockAlpha: true
     }));
 
     setLayers(newLayers);
@@ -69,33 +196,47 @@ function App() {
     setActiveLayerId(firstSelectable?.id || '');
     setLoadedTemplate(template);
     initializedRefs.current.clear();
+    restoredImagesRef.current = null; // Ensure no pending restore
 
-    // Auto-Recenter on Load (Fit to Screen)
-    const padding = 40; // px
-    // Sidebar is floating now, so we use full width
+    // Auto-Recenter
+    const padding = 40;
     const availableWidth = window.innerWidth;
     const availableHeight = window.innerHeight;
-
-    // Calculate max scale to fit
     const scaleX = (availableWidth - padding * 2) / 800;
     const scaleY = (availableHeight - padding * 2) / 600;
-
     const isMobile = window.innerWidth <= 900;
     const zoomMultiplier = isMobile ? 1.4 : 1.15;
-
-    // Fit to screen then apply user requested zoom boost. Allow going > 1.0 up to 3.0
     const newScale = Math.min(Math.min(scaleX, scaleY) * zoomMultiplier, 3.0);
 
-    // Just center strictly
-    const offsetX = 0;
-    const offsetY = 0;
+    setViewState({ scale: newScale, offset: { x: 0, y: 0 } });
 
-    setViewState({ scale: newScale, offset: { x: offsetX, y: offsetY } });
+    if (isMobile) setActivePanel('none');
+  };
 
-    // On mobile, auto-close template picker after selection to show canvas
-    if (window.innerWidth <= 900) {
-      setActivePanel('none');
+  const restoreHistory = (item: HistoryItem) => {
+    // 1. Save CURRENT state if dirty
+    if (layers.length > 0 && loadedTemplate && isDirty) {
+      const currentItem = captureHistoryState();
+      if (currentItem) {
+        setHistory(prev => [currentItem, ...prev].slice(0, 10));
+      }
     }
+
+    // 2. Restore State
+    setLoadedTemplate(item.template);
+    setLayers(item.layers);
+    setStickers(item.stickers);
+
+    setIsDirty(false); // Reset dirty flag (loaded state is "clean")
+
+    // Queue images for drawing
+    restoredImagesRef.current = item.layerImages;
+    initializedRefs.current.clear(); // Force redraw (but we will intercept with restored images)
+
+    const firstSelectable = item.layers.find(l => !l.locked && (l.zIndex ?? 0) < 900);
+    setActiveLayerId(firstSelectable?.id || '');
+
+    if (window.innerWidth <= 900) setActivePanel('none');
   };
 
   // Load default template on start
@@ -112,19 +253,40 @@ function App() {
       layers.forEach((layer, index) => {
         if (initializedRefs.current.has(layer.id)) return;
 
-        const canvas = document.querySelector(`.layer-wrapper:nth-child(${index + 1}) canvas`) as HTMLCanvasElement;
+        // Robust ID selection
+        const wrapper = document.getElementById(`layer-wrapper-${layer.id}`);
+        const canvas = wrapper?.querySelector('canvas') as HTMLCanvasElement;
+
         if (canvas) {
           const ctx = canvas.getContext('2d');
           if (ctx) {
             ctx.clearRect(0, 0, 800, 600);
-            const templateLayer = loadedTemplate.layers[index];
-            if (templateLayer && templateLayer.drawFn) {
-              templateLayer.drawFn(ctx, 800, 600);
-              initializedRefs.current.add(layer.id);
+
+            // CHECK FOR RESTORATION
+            const restoredData = restoredImagesRef.current?.find(r => r.id === layer.id);
+            if (restoredData) {
+              const img = new Image();
+              img.onload = () => {
+                ctx.drawImage(img, 0, 0);
+                initializedRefs.current.add(layer.id);
+              };
+              img.src = restoredData.dataUrl;
+            } else {
+              // FALLBACK TO TEMPLATE DEFAULT
+              // Only if we don't have restored data (or this layer is new/untracked)
+              // Match by index as per loadTemplate logic
+              const tLayerByIndex = loadedTemplate.layers[index];
+
+              if (tLayerByIndex && tLayerByIndex.drawFn) {
+                tLayerByIndex.drawFn(ctx, 800, 600);
+                initializedRefs.current.add(layer.id);
+              }
             }
           }
         }
       });
+      // After processing all layers, if we were restoring, maybe clear the ref?
+      // But images load async. Let's keep it harmlessly until next load clears it.
     }, 100);
 
     return () => clearTimeout(timer);
@@ -149,33 +311,7 @@ function App() {
   // Color Memory Logic
 
   // Track previous layer to save color on exit
-  const prevLayerIdRef = useRef<string>(activeLayerId);
 
-  // 1. When active layer changes:
-  //    a) Save current 'color' to the PREVIOUS layer (so it remembers what we had).
-  //    b) Restore the NEW layer's lastColor (if exists).
-  useEffect(() => {
-    const prevId = prevLayerIdRef.current;
-
-    // If we switched layers (and had a previous one)
-    if (prevId && prevId !== activeLayerId) {
-      setLayers(currentLayers =>
-        currentLayers.map(l => l.id === prevId ? { ...l, lastColor: color } : l)
-      );
-    }
-
-    // Update ref
-    prevLayerIdRef.current = activeLayerId;
-
-    // Restore logic for NEW layer
-    if (!activeLayerId) return;
-    const layer = layers.find(l => l.id === activeLayerId);
-    if (layer && layer.lastColor) {
-      setColor(layer.lastColor);
-    }
-    // If no lastColor, we intentionally keep 'color' as is (inheriting from previous).
-
-  }, [activeLayerId]); // dependent on ID switch
 
   // 2. When color changes explicitely, save it to the ACTIVE layer immediately
   useEffect(() => {
@@ -187,28 +323,21 @@ function App() {
     );
   }, [color]);
 
+  // STAMP MODE: Auto-deselect layers
+  useEffect(() => {
+    if (tool === 'stamp') {
+      setActiveLayerId('');
+    }
+  }, [tool]);
+
 
   const handleSave = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = 800;
-    canvas.height = 600;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, 800, 600);
-
-    layers.forEach((layer, i) => {
-      if (!layer.visible) return;
-      const layerCanvas = document.querySelector(`.layer-wrapper:nth-child(${i + 1}) canvas`) as HTMLCanvasElement;
-      if (layerCanvas) {
-        ctx.drawImage(layerCanvas, 0, 0);
-      }
-    });
+    const dataUrl = composeCanvas();
+    if (!dataUrl) return;
 
     const link = document.createElement('a');
     link.download = `my-drawing-${Date.now()}.png`;
-    link.href = canvas.toDataURL();
+    link.href = dataUrl;
     link.click();
   };
 
@@ -227,112 +356,9 @@ function App() {
     return hex.length === 1 ? '0' + hex : hex;
   };
 
-  const handleCanvasClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    // Find a reference canvas to get the ACTUAL displayed size/position (centering/letterboxing)
-    const referenceCanvas = document.querySelector('canvas');
-    if (!referenceCanvas) return;
-
-    const rect = referenceCanvas.getBoundingClientRect();
-
-    // Check if click is within the actual canvas bounds
-    if (
-      e.clientX < rect.left ||
-      e.clientX > rect.right ||
-      e.clientY < rect.top ||
-      e.clientY > rect.bottom
-    ) {
-      return; // Clicked in the black bars/empty space
-    }
-
-    // Map screen pixels (relative to canvas rect) to internal 800x600 pixels
-    const scaleX = 800 / rect.width;
-    const scaleY = 600 / rect.height;
-
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
-
-    // EYEDROPPER LOGIC
-    if (tool === 'eyedropper') {
-      const sortedLayers = [...layers].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)).reverse();
-
-      for (const layer of sortedLayers) {
-        if (!layer.visible) continue;
-        const index = layers.findIndex(l => l.id === layer.id);
-        if (index === -1) continue;
-
-        const canvas = document.querySelector(`.layer-wrapper:nth-child(${index + 1}) canvas`) as HTMLCanvasElement;
-        if (!canvas) continue;
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) continue;
-
-        try {
-          const pixel = ctx.getImageData(x, y, 1, 1).data;
-          if (pixel[3] > 0) {
-            const hexColor = `#${toHex(pixel[0])}${toHex(pixel[1])}${toHex(pixel[2])}`;
-            setColor(hexColor);
-            setTool('brush');
-            return;
-          }
-        } catch (e) {
-          console.error(e);
-        }
-      }
-      setColor('#ffffff');
-      setTool('brush');
-      return;
-    }
 
 
-    // SELECTION LOGIC
-    for (let i = layers.length - 1; i >= 0; i--) {
-      const layer = layers[i];
-      if (!layer.visible || layer.locked) continue;
 
-      const canvas = document.querySelector(`.layer-wrapper:nth-child(${i + 1}) canvas`) as HTMLCanvasElement;
-      if (!canvas) continue;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) continue;
-
-      try {
-        const pixel = ctx.getImageData(x, y, 1, 1).data;
-        if (pixel[3] > 0) {
-          setActiveLayerId(layer.id);
-          return;
-        }
-      } catch (err) { }
-    }
-
-    setActiveLayerId('');
-  };
-
-  // LAYER COLOR MEMORY
-  // 1. When Color changes, save it to the Active Layer
-  useEffect(() => {
-    if (!activeLayerId) return;
-    setLayers(prevLayers => prevLayers.map(l =>
-      l.id === activeLayerId ? { ...l, lastColor: color } : l
-    ));
-  }, [color]); // Intentionally NOT activeLayerId to avoid loops
-
-  // 2. When Active Layer changes, restore its last color (if exists)
-  useEffect(() => {
-    if (!activeLayerId) return;
-    const layer = layers.find(l => l.id === activeLayerId);
-    // If layer has a memory, use it. 
-    // If NOT (undefined), default to Black (or desired default) to avoid "leaking" the previous layer's color.
-    // The user specifically requested: "use the last used color instead of the picked color."
-    // This ensures we switch context completely.
-    if (layer) {
-      if (layer.lastColor) {
-        setColor(layer.lastColor);
-      } else {
-        // New layer / No history -> Default to Black (or keep current? User said "instead of picked", implying strictness).
-        // Let's safe-guard by defaulting to Black for fresh layers to ensure "fresh" feeling.
-        setColor('#000000');
-      }
-    }
-  }, [activeLayerId]);
 
   return (
     <div className="app-container">
@@ -449,6 +475,45 @@ function App() {
                 </div>
               </div>
             )}
+
+            {/* Stamps */}
+            {activePanel === 'stamps' && (
+              <div className="panel-content">
+                <h3 className="panel-title">Stamps <button className="close-btn" onClick={() => setActivePanel('none')}>✖</button></h3>
+                <StampsPanel
+                  currentStamp={currentStamp}
+                  onSelectStamp={(stamp) => {
+                    setCurrentStamp(stamp);
+                    setTool('stamp');
+                    // Selecting a stamp doesn't change canvas yet, 
+                    // but clicking canvas will. 
+                    // Let's handle the canvas click for stamps below.
+                  }}
+                />
+              </div>
+            )}
+
+            {/* History Gallery */}
+            {activePanel === 'history' && (
+              <div className="panel-content">
+                <h3 className="panel-title">History <button className="close-btn" onClick={() => setActivePanel('none')}>✖</button></h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px', padding: '10px' }}>
+                  {history.length === 0 && <p style={{ color: '#888', gridColumn: '1/-1', textAlign: 'center' }}>No history yet. Draw something and switch templates! 🎨</p>}
+                  {history.map((item) => (
+                    <div
+                      key={item.id}
+                      onClick={() => restoreHistory(item)} // Connect Restoration
+                      style={{ border: '2px solid #eee', borderRadius: '8px', overflow: 'hidden', cursor: 'pointer', transition: 'transform 0.1s' }}
+                      onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                      onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                      title={`Restore ${new Date(item.timestamp).toLocaleTimeString()}`}
+                    >
+                      <img src={item.thumbnail} alt="History" style={{ width: '100%', height: 'auto', display: 'block' }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -483,6 +548,132 @@ function App() {
           if (e.button === 1 || (e.button === 0 && isSpacePressed)) {
             e.preventDefault();
             setIsPanning(true);
+            return;
+          }
+
+          // Calculate world coordinates
+          // Find a reference canvas to get the ACTUAL displayed size/position (centering/letterboxing)
+          const referenceCanvas = document.querySelector('canvas');
+          if (!referenceCanvas) return;
+
+          const rect = referenceCanvas.getBoundingClientRect();
+          // Check if click is within the actual canvas bounds
+          if (
+            e.clientX < rect.left ||
+            e.clientX > rect.right ||
+            e.clientY < rect.top ||
+            e.clientY > rect.bottom
+          ) {
+            return; // Clicked in the black bars/empty space
+          }
+
+          const scaleX = 800 / rect.width;
+          const scaleY = 600 / rect.height;
+          const x = (e.clientX - rect.left) * scaleX;
+          const y = (e.clientY - rect.top) * scaleY;
+
+
+          // 1. EYEDROPPER LOGIC (Moved to MouseDown)
+          if (tool === 'eyedropper') {
+            const sortedLayers = [...layers].sort((a, b) => (a.zIndex ?? 0) - (b.zIndex ?? 0)).reverse();
+
+            let found = false;
+            for (const layer of sortedLayers) {
+              if (!layer.visible) continue;
+              const index = layers.findIndex(l => l.id === layer.id);
+              if (index === -1) continue;
+
+              const canvas = document.querySelector(`.layer-wrapper:nth-child(${index + 1}) canvas`) as HTMLCanvasElement;
+              if (!canvas) continue;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) continue;
+
+              try {
+                const pixel = ctx.getImageData(x, y, 1, 1).data;
+                if (pixel[3] > 0) {
+                  const hexColor = `#${toHex(pixel[0])}${toHex(pixel[1])}${toHex(pixel[2])}`;
+                  setColor(hexColor);
+                  setTool('brush');
+                  found = true;
+                  break;
+                }
+              } catch (err) { console.error(err); }
+            }
+            if (!found) {
+              setColor('#ffffff');
+              setTool('brush');
+            }
+            return;
+          }
+
+          // 2. LAYER AUTO-SELECTION (Hit Testing on MouseDown)
+          // Find the topmost visible, unlocked layer at this position
+          let clickedLayerId = null;
+          for (let i = layers.length - 1; i >= 0; i--) {
+            const layer = layers[i];
+            if (!layer.visible || layer.locked) continue;
+
+            const canvas = document.querySelector(`.layer-wrapper:nth-child(${i + 1}) canvas`) as HTMLCanvasElement;
+            if (!canvas) continue;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) continue;
+
+            try {
+              const pixel = ctx.getImageData(x, y, 1, 1).data;
+              if (pixel[3] > 0) {
+                clickedLayerId = layer.id;
+                break;
+              }
+            } catch (err) { }
+          }
+
+          // Auto-select the clicked layer
+          // We select immediately on MouseDown so the subsequent drawing (Drag) works on the new layer.
+          if (clickedLayerId && clickedLayerId !== activeLayerId) {
+            setActiveLayerId(clickedLayerId);
+            // Note: Changing active layer usually disables the previous layer's CanvasLayer 
+            // and enables the new one. The new one will catch the NEXT pointer event.
+            // But for THIS event, it might already be consumed or bubbling.
+            // Ideally, user clicks (selects) then drags (draws) or clicks again.
+            // Just selecting is enough for "updating selection position".
+          }
+          else if (!clickedLayerId && tool === 'brush') {
+            // Clicked empty space? Deselect? 
+            // Usually we keep the active layer?
+            // The original logic deselected if nothing was hit.
+            setActiveLayerId('');
+          }
+
+          // 3. STAMPS
+          if (tool === 'stamp' && !isSpacePressed) {
+            const newSticker: Sticker = {
+              id: Date.now().toString(),
+              emoji: currentStamp,
+              x, y,
+              size: 100,
+              rotation: 0
+            };
+            setStickers(prev => [...prev, newSticker]);
+            setIsDirty(true);
+          }
+          // 4. FILL
+          else if (tool === 'fill' && !isSpacePressed) {
+            // Handle Fill
+            const activeWrapper = document.getElementById(`layer-wrapper-${activeLayerId}`);
+            const activeCanvas = activeWrapper?.querySelector('canvas');
+            if (activeCanvas) {
+              const ctx = activeCanvas.getContext('2d');
+              if (ctx) {
+                const rect = activeCanvas.getBoundingClientRect();
+                // We already calculated x/y relative to 800x600, let's just use them.
+                // Wait, we need integer coords.
+                const ix = Math.floor(x);
+                const iy = Math.floor(y);
+
+                const filled = floodFill(ctx, ix, iy, color, 800, 600);
+                if (filled) setIsDirty(true);
+              }
+            }
           }
         }}
         onMouseMove={(e: React.MouseEvent) => {
@@ -549,6 +740,40 @@ function App() {
             element._lastTouchCenter = { x: cx, y: cy };
           }
         }}
+
+        // Sticker Drag Move (Attached to workspace to catch fast moves)
+        onMouseMoveCapture={(e) => {
+          if (draggedStickerId) {
+            const referenceCanvas = document.querySelector('canvas');
+            if (!referenceCanvas) return;
+            const rect = referenceCanvas.getBoundingClientRect();
+            const scaleX = 800 / rect.width;
+            const scaleY = 600 / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+
+            setStickers(prev => prev.map(s =>
+              s.id === draggedStickerId ? { ...s, x, y } : s
+            ));
+          }
+        }}
+
+        onMouseUpCapture={() => {
+          if (draggedStickerId) {
+            // Check if dropped outside bounds to delete
+            setStickers(prev => prev.filter(s => {
+              if (s.id === draggedStickerId) {
+                const isOutside = s.x < -50 || s.x > 850 || s.y < -50 || s.y > 650; // generous buffer before delete? Or strict?
+                // Let's settle on: If center is outside 0-800/0-600.
+                const outside = s.x < 0 || s.x > 800 || s.y < 0 || s.y > 600;
+                return !outside; // Keep if inside
+              }
+              return true;
+            }));
+            setDraggedStickerId(null);
+          }
+        }}
+
         onTouchEnd={(e) => {
           if (e.touches.length < 2) {
             setIsPanning(false);
@@ -557,7 +782,6 @@ function App() {
       >
         <div
           className={`canvas-stack ${activeLayerId ? 'focus-mode' : ''}`}
-          onClick={handleCanvasClick}
           style={{
             cursor: isPanning ? 'grabbing' : (tool === 'eyedropper' ? 'crosshair' : 'default'),
             // Offset Focus Logic: Shift canvas right to recenter in valid space when panel is open.
@@ -579,6 +803,7 @@ function App() {
           {layers.map((layer) => (
             <div
               key={layer.id}
+              id={`layer-wrapper-${layer.id}`}
               className={`layer-wrapper ${layer.id === activeLayerId ? 'active' : ''}`}
               style={{ zIndex: layer.zIndex ?? 0, display: layer.visible ? 'block' : 'none' }}
             >
@@ -587,16 +812,51 @@ function App() {
                 height={600}
                 color={layer.id === activeLayerId ? color : 'transparent'}
                 lineWidth={brushSize}
-                tool={tool === 'eyedropper' ? undefined : tool}
+                tool={tool === 'eyedropper' || tool === 'fill' || tool === 'stamp' ? undefined : tool}
                 lockAlpha={layer.lockAlpha ?? false}
                 className="drawing-layer"
-                disabled={layer.id !== activeLayerId || layer.locked || tool === 'eyedropper'}
+                disabled={layer.id !== activeLayerId || layer.locked || tool === 'eyedropper' || tool === 'fill' || tool === 'stamp'}
+                onDrawEnd={() => setIsDirty(true)}
               />
             </div>
           ))}
+
+          {/* DRAGGABLE STICKERS OVERLAY */}
+          {stickers.map(sticker => {
+            const isOutside = sticker.x < 0 || sticker.x > 800 || sticker.y < 0 || sticker.y > 600;
+            return (
+              <div
+                key={sticker.id}
+                style={{
+                  position: 'absolute',
+                  left: sticker.x,
+                  top: sticker.y,
+                  transform: `translate(-50%, -50%) rotate(${sticker.rotation}rad) ${isOutside ? 'scale(0.8)' : 'scale(1)'}`,
+                  fontSize: `${sticker.size}px`,
+                  cursor: tool === 'stamp' ? 'move' : 'default',
+                  userSelect: 'none',
+                  zIndex: 2000,
+                  pointerEvents: tool === 'stamp' ? 'auto' : 'none',
+                  opacity: isOutside ? 0.5 : 1,
+                  filter: isOutside ? 'grayscale(100%)' : 'none',
+                  transition: 'transform 0.2s, opacity 0.2s, filter 0.2s',
+                }}
+                onMouseDown={(e) => {
+                  e.stopPropagation(); // Prevent canvas drawing
+                  if (e.button !== 0) return;
+                  setDraggedStickerId(sticker.id);
+                  setIsDirty(true); // Mark dirty on drag start (assumes movement, or at least interaction)
+                }}
+              >
+                {sticker.emoji}
+                {isOutside && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '2rem', pointerEvents: 'none' }}>🗑️</div>}
+              </div>
+            );
+          })}
+
         </div>
       </div>
-    </div>
+    </div >
   );
 }
 
