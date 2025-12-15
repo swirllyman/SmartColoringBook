@@ -26,14 +26,13 @@ export function floodFill(
         a: data[targetIdx + 3]
     };
 
-    // 4. Early Exit if colors match
     if (
         Math.abs(targetColor.r - fillColor.r) < 3 &&
         Math.abs(targetColor.g - fillColor.g) < 3 &&
         Math.abs(targetColor.b - fillColor.b) < 3 &&
         Math.abs(targetColor.a - fillColor.a) < 3
     ) {
-        return;
+        return false;
     }
 
     // 5. Scanline Algorithm
@@ -102,6 +101,7 @@ export function floodFill(
     }
 
     ctx.putImageData(imageData, 0, 0);
+    return true;
 }
 
 function match(idx: number, target: { r: number, g: number, b: number, a: number }, data: Uint8ClampedArray) {

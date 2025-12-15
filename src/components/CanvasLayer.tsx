@@ -22,7 +22,7 @@ export const CanvasLayer = ({
 }: CanvasLayerProps) => {
     const { canvasRef, onPointerDown: pDown, onPointerMove: pMove, onPointerUp: pUp, hasDrawn } = useDraw(drawLine);
 
-    const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const handlePointerUp = () => {
         pUp();
         if (onDrawEnd && hasDrawn.current) onDrawEnd();
     };

@@ -51,7 +51,6 @@ function App() {
   // Stickers State
   const [stickers, setStickers] = useState<Sticker[]>([]);
   const [draggedStickerId, setDraggedStickerId] = useState<string | null>(null);
-  const dragOffsetRef = useRef({ x: 0, y: 0 });
 
   // History State
   // History State
@@ -664,9 +663,6 @@ function App() {
             if (activeCanvas) {
               const ctx = activeCanvas.getContext('2d');
               if (ctx) {
-                const rect = activeCanvas.getBoundingClientRect();
-                // We already calculated x/y relative to 800x600, let's just use them.
-                // Wait, we need integer coords.
                 const ix = Math.floor(x);
                 const iy = Math.floor(y);
 
@@ -763,7 +759,6 @@ function App() {
             // Check if dropped outside bounds to delete
             setStickers(prev => prev.filter(s => {
               if (s.id === draggedStickerId) {
-                const isOutside = s.x < -50 || s.x > 850 || s.y < -50 || s.y > 650; // generous buffer before delete? Or strict?
                 // Let's settle on: If center is outside 0-800/0-600.
                 const outside = s.x < 0 || s.x > 800 || s.y < 0 || s.y > 600;
                 return !outside; // Keep if inside
